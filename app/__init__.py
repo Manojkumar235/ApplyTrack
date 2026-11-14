@@ -7,6 +7,7 @@ from flask_cors import CORS
 from werkzeug.exceptions import HTTPException
 
 from app.api import api_bp, root_bp
+from app.api.docs import docs_bp, swagger_ui_bp
 from app.config import Config, parse_cors_allowed_origins
 from app.extensions import db, jwt, migrate
 from app.models import Application, User
@@ -68,6 +69,14 @@ def create_app(test_config: dict | None = None) -> Flask:
         )
     app.register_blueprint(root_bp)
     app.register_blueprint(api_bp, url_prefix="/api")
+    app.register_blueprint(docs_bp, url_prefix="/api")
+    app.register_blueprint(swagger_ui_bp, url_prefix="/api/docs")
+    app.add_url_rule(
+        "/api/docs",
+        endpoint="swagger_ui_no_trailing_slash",
+        view_func=app.view_functions["swagger_ui.show"],
+        defaults={"path": None},
+    )
 
     @app.errorhandler(HTTPException)
     def handle_http_error(error: HTTPException):

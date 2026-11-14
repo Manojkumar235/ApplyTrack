@@ -1,0 +1,494 @@
+openapi: 3.0.3
+info:
+  title: ApplyTrack API
+  description: >-
+    API for account authentication and tracking job and internship
+    applications.
+  version: unversioned
+paths:
+  /:
+    get:
+      operationId: getApiInformation
+      tags:
+        - General
+      summary: Get API information
+      responses:
+        "200":
+          description: API identity and runtime status.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiInformation"
+  /api/health:
+    get:
+      operationId: getHealth
+      tags:
+        - General
+      summary: Check API health
+      description: Returns process-level health; it does not check database connectivity.
+      responses:
+        "200":
+          description: The API process is responding.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+  /api/auth/register:
+    post:
+      operationId: registerUser
+      tags:
+        - Authentication
+      summary: Register a user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegistrationRequest"
+      responses:
+        "201":
+          description: The account was created and an access token was issued.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthenticationResponse"
+        "400":
+          description: The JSON body, fields, email, or password is invalid.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "409":
+          description: An account with that email already exists.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/auth/login:
+    post:
+      operationId: loginUser
+      tags:
+        - Authentication
+      summary: Log in a user
+      description: Email is looked up case-insensitively; login does not separately validate its format.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: Credentials were accepted and an access token was issued.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthenticationResponse"
+        "400":
+          description: The JSON body or field types are invalid.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: The email or password is invalid.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/applications:
+    get:
+      operationId: listApplications
+      tags:
+        - Applications
+      summary: List the authenticated user's applications
+      description: Results are ordered by descending application ID. No query parameters are supported.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Applications belonging to the authenticated user.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApplicationList"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      operationId: createApplication
+      tags:
+        - Applications
+      summary: Create an application
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApplicationCreateRequest"
+      responses:
+        "201":
+          description: The application was created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApplicationResponse"
+        "400":
+          description: The JSON body contains invalid or unsupported fields.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /api/applications/{application_id}:
+    parameters:
+      - name: application_id
+        in: path
+        required: true
+        description: Integer ID of an application.
+        schema:
+          type: integer
+    get:
+      operationId: getApplication
+      tags:
+        - Applications
+      summary: Get an application
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: The requested application.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApplicationResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: The application does not exist or is not owned by the user.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+    patch:
+      operationId: updateApplication
+      tags:
+        - Applications
+      summary: Partially update an application
+      description: At least one supported field must be provided. Unknown fields are rejected.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApplicationPatchRequest"
+      responses:
+        "200":
+          description: The application was updated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApplicationResponse"
+        "400":
+          description: The JSON body contains invalid or unsupported fields.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: The application does not exist or is not owned by the user.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+    delete:
+      operationId: deleteApplication
+      tags:
+        - Applications
+      summary: Delete an application
+      security:
+        - bearerAuth: []
+      responses:
+        "204":
+          description: The application was deleted; the response has no body.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: The application does not exist or is not owned by the user.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Access token returned by registration or login. Tokens expire after one hour.
+  responses:
+    Unauthorized:
+      description: The bearer token is missing, invalid, or expired.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+  schemas:
+    ApiInformation:
+      type: object
+      required:
+        - application
+        - message
+        - status
+      properties:
+        application:
+          type: string
+          enum:
+            - ApplyTrack
+        message:
+          type: string
+          enum:
+            - Internship and Job Application Tracker API
+        status:
+          type: string
+          enum:
+            - running
+    HealthStatus:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          enum:
+            - ok
+    ApiError:
+      type: object
+      required:
+        - error
+        - message
+      properties:
+        error:
+          type: string
+          description: HTTP error name, such as Bad Request, Unauthorized, Not Found, or Conflict.
+        message:
+          type: string
+          description: Error detail; JWT middleware messages may vary.
+    User:
+      type: object
+      required:
+        - id
+        - email
+        - created_at
+      properties:
+        id:
+          type: integer
+        email:
+          type: string
+          maxLength: 254
+        created_at:
+          type: string
+          format: date-time
+    Application:
+      type: object
+      required:
+        - id
+        - company
+        - position
+        - status
+        - location
+        - url
+        - notes
+        - applied_on
+      properties:
+        id:
+          type: integer
+        company:
+          type: string
+          maxLength: 160
+        position:
+          type: string
+          maxLength: 160
+        status:
+          type: string
+          enum:
+            - saved
+            - applied
+            - interviewing
+            - offer
+            - rejected
+            - withdrawn
+        location:
+          type: string
+          nullable: true
+          maxLength: 160
+        url:
+          type: string
+          nullable: true
+          maxLength: 2048
+        notes:
+          type: string
+          nullable: true
+        applied_on:
+          type: string
+          format: date
+          nullable: true
+    AuthenticationResponse:
+      type: object
+      required:
+        - access_token
+        - user
+      properties:
+        access_token:
+          type: string
+          description: JWT access token; expires after one hour.
+        user:
+          $ref: "#/components/schemas/User"
+    ApplicationResponse:
+      type: object
+      required:
+        - application
+      properties:
+        application:
+          $ref: "#/components/schemas/Application"
+    ApplicationList:
+      type: object
+      required:
+        - applications
+      properties:
+        applications:
+          type: array
+          items:
+            $ref: "#/components/schemas/Application"
+    RegistrationRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          pattern: '^\s*[^@\s]+@[^@\s]+\.[^@\s]+\s*$'
+          description: >-
+            The value is trimmed before validation and lowercased before
+            storage. The trimmed value must match
+            ^[^@\s]+@[^@\s]+\.[^@\s]+$ and be at most 254 characters.
+            No maxLength is specified because the server applies that limit
+            after trimming, so raw leading or trailing whitespace can make the
+            request value longer than 254 characters.
+        password:
+          type: string
+          minLength: 8
+          maxLength: 128
+    LoginRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          description: Trimmed and lowercased for account lookup.
+        password:
+          type: string
+    ApplicationCreateRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - company
+        - position
+      properties:
+        company:
+          type: string
+          minLength: 1
+          description: >-
+            After trimming, must contain 1 to 160 characters and must not
+            consist only of decimal digits.
+        position:
+          type: string
+          minLength: 1
+          description: >-
+            After trimming, must contain 1 to 160 characters and must not
+            consist only of decimal digits.
+        status:
+          type: string
+          enum:
+            - saved
+            - applied
+            - interviewing
+            - offer
+            - rejected
+            - withdrawn
+          default: saved
+        location:
+          type: string
+          nullable: true
+          maxLength: 160
+          description: Empty strings and null are accepted.
+        url:
+          type: string
+          nullable: true
+          maxLength: 2048
+          description: Empty strings and null are accepted; non-empty values must be absolute HTTP(S) URLs.
+        applied_on:
+          type: string
+          format: date
+          nullable: true
+          description: Must be a real calendar date in YYYY-MM-DD format, or null.
+        notes:
+          type: string
+          nullable: true
+          description: Empty strings and null are accepted; no maximum length is enforced.
+    ApplicationPatchRequest:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        company:
+          type: string
+          minLength: 1
+          description: >-
+            After trimming, must contain 1 to 160 characters and must not
+            consist only of decimal digits.
+        position:
+          type: string
+          minLength: 1
+          description: >-
+            After trimming, must contain 1 to 160 characters and must not
+            consist only of decimal digits.
+        status:
+          type: string
+          enum:
+            - saved
+            - applied
+            - interviewing
+            - offer
+            - rejected
+            - withdrawn
+        location:
+          type: string
+          nullable: true
+          maxLength: 160
+          description: Empty strings and null are accepted.
+        url:
+          type: string
+          nullable: true
+          maxLength: 2048
+          description: Empty strings and null are accepted; non-empty values must be absolute HTTP(S) URLs.
+        applied_on:
+          type: string
+          format: date
+          nullable: true
+          description: Must be a real calendar date in YYYY-MM-DD format, or null.
+        notes:
+          type: string
+          nullable: true
+          description: Empty strings and null are accepted; no maximum length is enforced.

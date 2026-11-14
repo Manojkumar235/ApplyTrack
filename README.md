@@ -78,22 +78,21 @@ development continues to use `/api` through the Vite proxy.
 ## API
 
 The root endpoint returns the API identity and runtime status. Application and
-authentication endpoints are under `/api`.
+authentication endpoints are under `/api`. Interactive API documentation is
+available at `/api/docs`, with the OpenAPI specification at
+`/api/openapi.yaml`.
 
 | Method | Path | Purpose |
 |---|---|---|
 | GET | `/` | API identity and runtime status |
-
-| Method | Path | Purpose |
-|---|---|---|
-| GET | `/health` | Health check |
-| POST | `/auth/register` | Create an account and return a JWT |
-| POST | `/auth/login` | Authenticate and return a JWT |
-| GET | `/applications` | List the authenticated user's applications |
-| POST | `/applications` | Create an application |
-| GET | `/applications/<id>` | Read an application owned by the user |
-| PATCH | `/applications/<id>` | Update an application owned by the user |
-| DELETE | `/applications/<id>` | Delete an application owned by the user |
+| GET | `/api/health` | Health check |
+| POST | `/api/auth/register` | Create an account and return a JWT |
+| POST | `/api/auth/login` | Authenticate and return a JWT |
+| GET | `/api/applications` | List the authenticated user's applications |
+| POST | `/api/applications` | Create an application |
+| GET | `/api/applications/<application_id>` | Read an application owned by the user |
+| PATCH | `/api/applications/<application_id>` | Update an application owned by the user |
+| DELETE | `/api/applications/<application_id>` | Delete an application owned by the user |
 
 Protected endpoints require `Authorization: Bearer <access_token>`. Application
 statuses are `saved`, `applied`, `interviewing`, `offer`, `rejected`, and
