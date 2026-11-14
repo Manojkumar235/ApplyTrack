@@ -1,3 +1,6 @@
+from app.api.application_validation import APPLICATION_STATUSES
+
+
 def test_root_endpoint(client):
     response = client.get("/")
     assert response.status_code == 200
@@ -66,6 +69,80 @@ def test_applications_require_authentication_and_validate_input(client, auth_hea
     assert invalid_date.status_code == 400
 
 
+def test_applications_reject_numeric_only_company_and_position(client, auth_headers):
+    numeric_company = client.post(
+        "/api/applications",
+        headers=auth_headers,
+        json={"company": "123", "position": "Software Intern"},
+    )
+    assert numeric_company.status_code == 400
+    assert numeric_company.get_json()["message"] == (
+        "Company cannot contain only numbers"
+    )
+
+    numeric_position = client.post(
+        "/api/applications",
+        headers=auth_headers,
+        json={"company": "Example Inc", "position": "456"},
+    )
+    assert numeric_position.status_code == 400
+    assert numeric_position.get_json()["message"] == (
+        "Position cannot contain only numbers"
+    )
+
+
+def test_all_six_application_statuses_are_supported(client, auth_headers):
+    assert APPLICATION_STATUSES == (
+        "saved",
+        "applied",
+        "interviewing",
+        "offer",
+        "rejected",
+        "withdrawn",
+    )
+
+    for index, status in enumerate(APPLICATION_STATUSES):
+        response = client.post(
+            "/api/applications",
+            headers=auth_headers,
+            json={
+                "company": f"Example Company {index}",
+                "position": f"Role {index}",
+                "status": status,
+            },
+        )
+        assert response.status_code == 201
+        assert response.get_json()["application"]["status"] == status
+
+    other_user = client.post(
+        "/api/auth/register",
+        json={"email": "status-owner@example.com", "password": "secure-password"},
+    )
+    other_headers = {
+        "Authorization": f"Bearer {other_user.get_json()['access_token']}"
+    }
+    other_application = client.post(
+        "/api/applications",
+        headers=other_headers,
+        json={
+            "company": "Other Company",
+            "position": "Other Role",
+            "status": "withdrawn",
+        },
+    )
+    assert other_application.status_code == 201
+
+    listed = client.get("/api/applications", headers=auth_headers)
+    owner_applications = listed.get_json()["applications"]
+    assert len(owner_applications) == len(APPLICATION_STATUSES)
+    assert {item["status"] for item in owner_applications} == set(APPLICATION_STATUSES)
+
+    other_listed = client.get("/api/applications", headers=other_headers)
+    assert [
+        item["status"] for item in other_listed.get_json()["applications"]
+    ] == ["withdrawn"]
+
+
 def test_application_crud_is_scoped_to_user(client, auth_headers):
     created = client.post(
         "/api/applications",
@@ -83,6 +160,7 @@ def test_application_crud_is_scoped_to_user(client, auth_headers):
     )
     assert updated.status_code == 200
     assert updated.get_json()["application"]["status"] == "applied"
+    assert updated.get_json()["application"]["applied_on"] == "2026-11-14"
 
     other_user = client.post(
         "/api/auth/register",

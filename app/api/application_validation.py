@@ -4,14 +4,14 @@ import re
 from datetime import date
 from urllib.parse import urlparse
 
-APPLICATION_STATUSES = {
+APPLICATION_STATUSES = (
     "saved",
     "applied",
     "interviewing",
     "offer",
     "rejected",
     "withdrawn",
-}
+)
 REQUIRED_FIELDS = {"company", "position"}
 OPTIONAL_FIELDS = {"location", "url", "notes", "applied_on"}
 ALLOWED_FIELDS = REQUIRED_FIELDS | OPTIONAL_FIELDS | {"status"}
@@ -35,6 +35,8 @@ def validate_application_payload(body, partial=False):
         if field in REQUIRED_FIELDS:
             if not isinstance(value, str) or not value.strip():
                 return None, f"{field.capitalize()} must be a non-empty string"
+            if value.strip().isdecimal():
+                return None, f"{field.capitalize()} cannot contain only numbers"
             cleaned[field] = value.strip()
         elif field == "status":
             if not isinstance(value, str) or value not in APPLICATION_STATUSES:
