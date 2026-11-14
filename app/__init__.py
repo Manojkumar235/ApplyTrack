@@ -1,9 +1,11 @@
 """ApplyTrack Flask application package."""
 
 import re
+import traceback
 
 from flask import Flask
 from flask_cors import CORS
+from sqlalchemy.exc import SQLAlchemyError
 from werkzeug.exceptions import HTTPException
 
 from app.api import api_bp, root_bp
@@ -11,6 +13,14 @@ from app.api.docs import docs_bp, swagger_ui_bp
 from app.config import Config, parse_cors_allowed_origins
 from app.extensions import db, jwt, migrate
 from app.models import Application, User
+
+
+def _safe_database_traceback(error: SQLAlchemyError) -> str:
+    # Frame locations preserve the traceback without formatting SQL or parameters.
+    return "\n".join(
+        f'  File "{frame.filename}", line {frame.lineno}, in {frame.name}'
+        for frame in traceback.extract_tb(error.__traceback__)
+    )
 
 
 def create_app(test_config: dict | None = None) -> Flask:
@@ -81,6 +91,27 @@ def create_app(test_config: dict | None = None) -> Flask:
     @app.errorhandler(HTTPException)
     def handle_http_error(error: HTTPException):
         return {"error": error.name, "message": error.description}, error.code
+
+    @app.errorhandler(SQLAlchemyError)
+    def handle_database_error(error: SQLAlchemyError):
+        try:
+            db.session.rollback()
+        except SQLAlchemyError as rollback_error:
+            app.logger.error(
+                "Database rollback failed (%s)\n%s",
+                type(rollback_error).__name__,
+                _safe_database_traceback(rollback_error),
+            )
+
+        app.logger.error(
+            "Database operation failed (%s)\n%s",
+            type(error).__name__,
+            _safe_database_traceback(error),
+        )
+        return {
+            "error": "Internal Server Error",
+            "message": "An unexpected server error occurred.",
+        }, 500
 
     @jwt.unauthorized_loader
     def handle_missing_token(reason: str):

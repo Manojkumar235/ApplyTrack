@@ -64,6 +64,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiError"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
   /api/auth/login:
     post:
       operationId: loginUser
@@ -96,6 +98,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiError"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
   /api/applications:
     get:
       operationId: listApplications
@@ -114,6 +118,8 @@ paths:
                 $ref: "#/components/schemas/ApplicationList"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
     post:
       operationId: createApplication
       tags:
@@ -142,6 +148,8 @@ paths:
                 $ref: "#/components/schemas/ApiError"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
   /api/applications/{application_id}:
     parameters:
       - name: application_id
@@ -172,6 +180,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiError"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
     patch:
       operationId: updateApplication
       tags:
@@ -207,6 +217,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiError"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
     delete:
       operationId: deleteApplication
       tags:
@@ -225,6 +237,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiError"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
 components:
   securitySchemes:
     bearerAuth:
@@ -239,6 +253,15 @@ components:
         application/json:
           schema:
             $ref: "#/components/schemas/ApiError"
+    InternalServerError:
+      description: An unexpected database error occurred.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+          example:
+            error: Internal Server Error
+            message: An unexpected server error occurred.
   schemas:
     ApiInformation:
       type: object

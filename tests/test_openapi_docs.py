@@ -69,6 +69,30 @@ def test_openapi_spec_reuses_required_schemas_and_documents_jwt():
     }
 
 
+def test_openapi_documents_database_error_responses():
+    specification = yaml.safe_load(OPENAPI_SPEC_PATH.read_text(encoding="utf-8"))
+    operations = (
+        ("/api/auth/register", "post"),
+        ("/api/auth/login", "post"),
+        ("/api/applications", "get"),
+        ("/api/applications", "post"),
+        ("/api/applications/{application_id}", "get"),
+        ("/api/applications/{application_id}", "patch"),
+        ("/api/applications/{application_id}", "delete"),
+    )
+
+    for path, method in operations:
+        assert specification["paths"][path][method]["responses"]["500"] == {
+            "$ref": "#/components/responses/InternalServerError"
+        }
+
+    response = specification["components"]["responses"]["InternalServerError"]
+    assert response["content"]["application/json"]["example"] == {
+        "error": "Internal Server Error",
+        "message": "An unexpected server error occurred.",
+    }
+
+
 def test_registration_email_schema_allows_valid_trimmed_value_over_254_raw(client):
     specification = yaml.safe_load(OPENAPI_SPEC_PATH.read_text(encoding="utf-8"))
     email_schema = specification["components"]["schemas"]["RegistrationRequest"][
