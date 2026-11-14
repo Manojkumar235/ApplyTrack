@@ -1,0 +1,910 @@
+{
+  "info": {
+    "_postman_id": "8bdc3531-2824-4a2d-b1ef-45a9ce79ee62",
+    "name": "ApplyTrack API",
+    "description": "End-to-end tests for the Flask routes currently registered by ApplyTrack. Run requests in order with the ApplyTrack Local environment selected. Set user_password to a test-only password at least 8 characters long; no real credentials are included.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Root API information",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            ""
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('returns HTTP 200', function () { pm.response.to.have.status(200); });",
+              "pm.test('returns ApplyTrack API status JSON', function () {",
+              "  const body = pm.response.json();",
+              "  pm.expect(body).to.deep.equal({ application: 'ApplyTrack', message: 'Internship and Job Application Tracker API', status: 'running' });",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Health check",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/health",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "health"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('returns HTTP 200', function () { pm.response.to.have.status(200); });",
+              "pm.test('returns healthy JSON', function () {",
+              "  pm.expect(pm.response.json()).to.deep.equal({ status: 'ok' });",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Register user",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"applytrack-{{$guid}}@example.test\",\n  \"password\": \"{{user_password}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{base_url}}/api/auth/register",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "auth",
+            "register"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.environment.unset('registered_email');",
+              "pm.environment.unset('access_token');",
+              "pm.environment.unset('application_id');"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('returns HTTP 201', function () { pm.response.to.have.status(201); });",
+              "pm.test('returns user and access token JSON', function () {",
+              "  const body = pm.response.json();",
+              "  pm.expect(body.access_token).to.be.a('string').and.not.empty;",
+              "  pm.expect(body.user).to.be.an('object');",
+              "  pm.expect(body.user.email).to.be.a('string');",
+              "  pm.environment.set('registered_email', body.user.email);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Login user",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{registered_email}}\",\n  \"password\": \"{{user_password}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{base_url}}/api/auth/login",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "auth",
+            "login"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('returns HTTP 200', function () { pm.response.to.have.status(200); });",
+              "pm.test('returns user and saves JWT access token', function () {",
+              "  const body = pm.response.json();",
+              "  pm.expect(body.user.email).to.eql(pm.environment.get('registered_email'));",
+              "  pm.expect(body.access_token).to.be.a('string').and.not.empty;",
+              "  pm.environment.set('access_token', body.access_token);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Register second user",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"applytrack-other-{{$guid}}@example.test\",\n  \"password\": \"{{user_password}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{base_url}}/api/auth/register",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "auth",
+            "register"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.environment.unset('other_registered_email');",
+              "pm.environment.unset('other_access_token');"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('returns HTTP 201', function () { pm.response.to.have.status(201); });",
+              "pm.test('returns the second test user', function () {",
+              "  const body = pm.response.json();",
+              "  pm.expect(body.user.email).to.be.a('string');",
+              "  pm.environment.set('other_registered_email', body.user.email);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Login second user",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{other_registered_email}}\",\n  \"password\": \"{{user_password}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{base_url}}/api/auth/login",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "auth",
+            "login"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('returns HTTP 200', function () { pm.response.to.have.status(200); });",
+              "pm.test('saves second user JWT token', function () {",
+              "  const body = pm.response.json();",
+              "  pm.expect(body.user.email).to.eql(pm.environment.get('other_registered_email'));",
+              "  pm.expect(body.access_token).to.be.a('string').and.not.empty;",
+              "  pm.environment.set('other_access_token', body.access_token);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Create application",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{access_token}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"company\": \"ApplyTrack Test Company\",\n  \"position\": \"Test Intern\",\n  \"status\": \"saved\",\n  \"location\": \"Remote\",\n  \"url\": \"https://example.test/jobs/test-intern\",\n  \"notes\": \"Created by the ApplyTrack Postman collection\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{base_url}}/api/applications",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "applications"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.environment.unset('application_id');"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('returns HTTP 201', function () { pm.response.to.have.status(201); });",
+              "pm.test('returns created application and saves its ID', function () {",
+              "  const body = pm.response.json();",
+              "  pm.expect(body.application.company).to.eql('ApplyTrack Test Company');",
+              "  pm.expect(body.application.position).to.eql('Test Intern');",
+              "  pm.expect(body.application.status).to.eql('saved');",
+              "  pm.expect(body.application.id).to.exist;",
+              "  pm.environment.set('application_id', String(body.application.id));",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Get all applications",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{access_token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/applications",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "applications"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('returns HTTP 200', function () { pm.response.to.have.status(200); });",
+              "pm.test('returns an applications array containing the created item', function () {",
+              "  const body = pm.response.json();",
+              "  pm.expect(body.applications).to.be.an('array');",
+              "  pm.expect(body.applications.some(function (item) { return String(item.id) === pm.environment.get('application_id'); })).to.eql(true);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Get application by ID",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{access_token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/applications/{{application_id}}",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "applications",
+            "{{application_id}}"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('returns HTTP 200', function () { pm.response.to.have.status(200); });",
+              "pm.test('returns the requested application JSON', function () {",
+              "  const body = pm.response.json();",
+              "  pm.expect(String(body.application.id)).to.eql(pm.environment.get('application_id'));",
+              "  pm.expect(body.application.company).to.eql('ApplyTrack Test Company');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Update application",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{access_token}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"status\": \"applied\",\n  \"notes\": \"Updated by the ApplyTrack Postman collection\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{base_url}}/api/applications/{{application_id}}",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "applications",
+            "{{application_id}}"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('returns HTTP 200', function () { pm.response.to.have.status(200); });",
+              "pm.test('returns the updated application JSON', function () {",
+              "  const body = pm.response.json();",
+              "  pm.expect(String(body.application.id)).to.eql(pm.environment.get('application_id'));",
+              "  pm.expect(body.application.status).to.eql('applied');",
+              "  pm.expect(body.application.notes).to.eql('Updated by the ApplyTrack Postman collection');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Negative tests - invalid credentials and unauthorized access",
+      "item": [
+        {
+          "name": "Login with invalid credentials",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{invalid_email}}\",\n  \"password\": \"{{invalid_password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('rejects invalid credentials with HTTP 401', function () { pm.response.to.have.status(401); });",
+                  "pm.test('returns unauthorized JSON error', function () {",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body.error).to.eql('Unauthorized');",
+                  "  pm.expect(body.message).to.be.a('string');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List applications without token",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/applications",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "applications"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('rejects unauthenticated request with HTTP 401', function () { pm.response.to.have.status(401); });",
+                  "pm.test('returns unauthorized JSON', function () { pm.expect(pm.response.json().error).to.eql('Unauthorized'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get application without token",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/applications/{{application_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "applications",
+                "{{application_id}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('rejects unauthenticated request with HTTP 401', function () { pm.response.to.have.status(401); });",
+                  "pm.test('returns unauthorized JSON', function () { pm.expect(pm.response.json().error).to.eql('Unauthorized'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create application without token",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"company\": \"Unauthorized Test\",\n  \"position\": \"Should Not Create\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/applications",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "applications"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('rejects unauthenticated request with HTTP 401', function () { pm.response.to.have.status(401); });",
+                  "pm.test('returns unauthorized JSON', function () { pm.expect(pm.response.json().error).to.eql('Unauthorized'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update application without token",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"withdrawn\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/applications/{{application_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "applications",
+                "{{application_id}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('rejects unauthenticated request with HTTP 401', function () { pm.response.to.have.status(401); });",
+                  "pm.test('returns unauthorized JSON', function () { pm.expect(pm.response.json().error).to.eql('Unauthorized'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete application without token",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/applications/{{application_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "applications",
+                "{{application_id}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('rejects unauthenticated request with HTTP 401', function () { pm.response.to.have.status(401); });",
+                  "pm.test('returns unauthorized JSON', function () { pm.expect(pm.response.json().error).to.eql('Unauthorized'); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Cross-user access control",
+      "item": [
+        {
+          "name": "Second user cannot get first user's application",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{other_access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/applications/{{application_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "applications",
+                "{{application_id}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('hides another user application with HTTP 404', function () { pm.response.to.have.status(404); });",
+                  "pm.test('returns not-found JSON', function () { pm.expect(pm.response.json().error).to.eql('Not Found'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Second user cannot update first user's application",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{other_access_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"withdrawn\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/applications/{{application_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "applications",
+                "{{application_id}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('hides another user application with HTTP 404', function () { pm.response.to.have.status(404); });",
+                  "pm.test('returns not-found JSON', function () { pm.expect(pm.response.json().error).to.eql('Not Found'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Second user cannot delete first user's application",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{other_access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/applications/{{application_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "applications",
+                "{{application_id}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('hides another user application with HTTP 404', function () { pm.response.to.have.status(404); });",
+                  "pm.test('returns not-found JSON', function () { pm.expect(pm.response.json().error).to.eql('Not Found'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Verify owner access after cross-user attempts",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/applications/{{application_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "applications",
+                "{{application_id}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('owner still receives HTTP 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('cross-user update did not change owner data', function () {",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body.application.status).to.eql('applied');",
+                  "  pm.expect(body.application.company).to.eql('ApplyTrack Test Company');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Delete application",
+      "request": {
+        "method": "DELETE",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{access_token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/applications/{{application_id}}",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "applications",
+            "{{application_id}}"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('returns HTTP 204 with no response body', function () {",
+              "  pm.response.to.have.status(204);",
+              "  pm.expect(pm.response.text()).to.eql('');",
+              "});"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
