@@ -1,10 +1,13 @@
 """ApplyTrack Flask application package."""
 
+import re
+
 from flask import Flask
+from flask_cors import CORS
 from werkzeug.exceptions import HTTPException
 
 from app.api import api_bp, root_bp
-from app.config import Config
+from app.config import Config, parse_cors_allowed_origins
 from app.extensions import db, jwt, migrate
 from app.models import Application, User
 
@@ -15,6 +18,23 @@ def create_app(test_config: dict | None = None) -> Flask:
     app.config.from_object(Config)
     if test_config:
         app.config.update(test_config)
+
+    if app.config.get("APP_ENV") not in {"development", "production"}:
+        raise RuntimeError("APP_ENV must be 'development' or 'production'")
+
+    app.config["CORS_ALLOWED_ORIGINS"] = parse_cors_allowed_origins(
+        app.config.get("CORS_ALLOWED_ORIGINS")
+    )
+    if app.config["APP_ENV"] == "production":
+        app.config["DEBUG"] = False
+        if not app.config["CORS_ALLOWED_ORIGINS"]:
+            raise RuntimeError(
+                "CORS_ALLOWED_ORIGINS must be set in production"
+            )
+        if app.config["JWT_SECRET_KEY"] == app.config["SECRET_KEY"]:
+            raise RuntimeError(
+                "JWT_SECRET_KEY must be different from SECRET_KEY in production"
+            )
 
     required_settings = (
         "SECRET_KEY",
@@ -32,6 +52,20 @@ def create_app(test_config: dict | None = None) -> Flask:
     db.init_app(app)
     migrate.init_app(app, db)
     jwt.init_app(app)
+    if app.config["CORS_ALLOWED_ORIGINS"]:
+        exact_origins = tuple(
+            re.compile(rf"^{re.escape(origin)}$", re.IGNORECASE)
+            for origin in app.config["CORS_ALLOWED_ORIGINS"]
+        )
+        CORS(
+            app,
+            resources={
+                r"/api/*": {
+                    "origins": exact_origins,
+                }
+            },
+            allow_headers=("Authorization", "Content-Type"),
+        )
     app.register_blueprint(root_bp)
     app.register_blueprint(api_bp, url_prefix="/api")
 

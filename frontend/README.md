@@ -13,6 +13,8 @@ React, Vite, JavaScript and Tailwind CSS frontend for the ApplyTrack Flask API.
 
 To point directly at a deployed API, set `VITE_API_BASE_URL` to its `/api` URL
 and ensure that API allows browser requests from the frontend origin.
+Vite embeds this value at build time; changing it requires a new production
+build. It is public configuration and must not contain secrets.
 
 ## Routes
 

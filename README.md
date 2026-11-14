@@ -1,8 +1,7 @@
 # ApplyTrack API
 
-ApplyTrack's initial backend is a Flask REST API for account authentication and
-tracking job and internship applications. The React frontend is intentionally
-not included yet.
+ApplyTrack is a Flask REST API for account authentication and tracking job and
+internship applications, with a React frontend in `frontend/`.
 
 ## Architecture
 
@@ -20,10 +19,10 @@ should be checked into source control.
 ## Local setup
 
 Use Python 3.10 or newer. Create and activate a virtual environment.
-2. Install dependencies with `pip install -r requirements-dev.txt`.
-3. Copy `.env.example` to `.env`, set distinct random `SECRET_KEY` and
+1. Install dependencies with `pip install -r requirements-dev.txt`.
+2. Copy `.env.example` to `.env`, set distinct random `SECRET_KEY` and
    `JWT_SECRET_KEY` values, and provide a PostgreSQL `DATABASE_URL`.
-4. Create the PostgreSQL database, then generate and apply the initial
+3. Create the PostgreSQL database, then generate and apply the initial
    migration:
 
    ```powershell
@@ -32,11 +31,49 @@ Use Python 3.10 or newer. Create and activate a virtual environment.
    flask --app wsgi db upgrade
    ```
 
-5. Start the development server with `flask --app wsgi run`.
+4. Start the development server with `flask --app wsgi run`.
 
 The application loads the project-root `.env` through `python-dotenv`; existing
 process environment variables take precedence. Do not use development or
 example secrets in production.
+
+## Production deployment
+
+The backend expects these environment variables in the production service:
+
+- `APP_ENV=production`
+- `SECRET_KEY` and `JWT_SECRET_KEY`: separate, long, randomly generated values.
+- `DATABASE_URL`: PostgreSQL connection URL. The application normalizes
+  `postgres://`, `postgresql://`, and other PostgreSQL driver URLs to psycopg 3.
+- `CORS_ALLOWED_ORIGINS`: comma-separated, exact frontend origins, with no
+  paths or wildcard. For example, use the origin of your own deployed frontend.
+- `PORT`: supplied by the hosting service and used by the WSGI start command.
+
+Do not set `FLASK_DEBUG=1` in production. Production configuration forces
+Flask debug mode off and requires an explicit CORS allowlist and separate
+signing keys. Do not commit `.env` files or put backend secrets in frontend
+build variables.
+
+Install backend and production WSGI dependencies with
+`pip install -r requirements-production.txt`. Gunicorn is intentionally kept
+out of the local development requirements. Apply reviewed database migrations
+as a release step before starting the service:
+
+```sh
+flask --app wsgi db upgrade
+```
+
+Use this production WSGI start command:
+
+```sh
+gunicorn --bind 0.0.0.0:$PORT wsgi:app
+```
+
+For Cloudflare Pages, configure the frontend root directory as `frontend`, the
+build command as `npm run build`, and the output directory as `dist`. Set
+`VITE_API_BASE_URL` in the Pages build environment to the deployed API base URL
+ending in `/api`; this value is embedded in the public frontend bundle. Local
+development continues to use `/api` through the Vite proxy.
 
 ## API
 
