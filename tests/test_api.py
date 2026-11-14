@@ -1,3 +1,8 @@
+from datetime import timedelta
+
+import pytest
+from flask_jwt_extended import create_access_token
+
 from app.api.application_validation import APPLICATION_STATUSES
 
 
@@ -33,6 +38,49 @@ def test_register_and_login(client):
     assert "access_token" in login.get_json()
 
 
+@pytest.mark.parametrize("password", ["", "short", "p" * 129, None])
+def test_registration_rejects_invalid_password(client, password):
+    response = client.post(
+        "/api/auth/register",
+        json={"email": "invalid-password@example.com", "password": password},
+    )
+    assert response.status_code == 400
+    assert response.is_json
+
+
+def test_login_rejects_incorrect_password_and_unknown_email(client):
+    registration = client.post(
+        "/api/auth/register",
+        json={"email": "login@example.com", "password": "secure-password"},
+    )
+    assert registration.status_code == 201
+
+    for credentials in (
+        {"email": "login@example.com", "password": "incorrect-password"},
+        {"email": "missing@example.com", "password": "secure-password"},
+    ):
+        response = client.post("/api/auth/login", json=credentials)
+        assert response.status_code == 401
+        assert response.is_json
+        assert response.get_json()["message"] == "Invalid email or password"
+
+
+def test_invalid_and_expired_jwts_are_rejected_as_json(client, app):
+    with app.app_context():
+        expired_token = create_access_token(
+            identity="1", expires_delta=timedelta(seconds=-60)
+        )
+
+    for token in ("not-a-jwt", expired_token):
+        response = client.get(
+            "/api/applications",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert response.status_code == 401
+        assert response.is_json
+        assert response.get_json()["error"] == "Unauthorized"
+
+
 def test_registration_rejects_oversized_email(client):
     response = client.post(
         "/api/auth/register",
@@ -44,12 +92,13 @@ def test_registration_rejects_oversized_email(client):
 def test_duplicate_registration_is_conflict(client):
     payload = {"email": "person@example.com", "password": "secure-password"}
     assert client.post("/api/auth/register", json=payload).status_code == 201
-    assert client.post("/api/auth/register", json=payload).status_code == 409
+    duplicate = client.post("/api/auth/register", json=payload)
+    assert duplicate.status_code == 409
+    assert duplicate.is_json
+    assert duplicate.get_json()["error"] == "Conflict"
 
 
 def test_applications_require_authentication_and_validate_input(client, auth_headers):
-    assert client.get("/api/applications").status_code == 401
-
     invalid = client.post(
         "/api/applications",
         headers=auth_headers,
@@ -67,6 +116,132 @@ def test_applications_require_authentication_and_validate_input(client, auth_hea
         },
     )
     assert invalid_date.status_code == 400
+    invalid_calendar_date = client.post(
+        "/api/applications",
+        headers=auth_headers,
+        json={
+            "company": "Example Inc",
+            "position": "Intern",
+            "applied_on": "2026-02-30",
+        },
+    )
+    assert invalid_calendar_date.status_code == 400
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"company": "Example Inc"},
+        {"position": "Intern"},
+        {"company": "", "position": "Intern"},
+        {"company": "Example Inc", "position": ""},
+        {"company": " ", "position": "Intern"},
+        {"company": "Example Inc", "position": " "},
+    ],
+)
+def test_create_rejects_missing_or_empty_required_fields(client, auth_headers, payload):
+    response = client.post(
+        "/api/applications", headers=auth_headers, json=payload
+    )
+    assert response.status_code == 400
+    assert response.is_json
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"company": "C" * 161, "position": "Intern"},
+        {"company": "Example Inc", "position": "P" * 161},
+    ],
+)
+def test_create_rejects_overlong_company_and_position(client, auth_headers, payload):
+    response = client.post(
+        "/api/applications", headers=auth_headers, json=payload
+    )
+    assert response.status_code == 400
+    assert response.is_json
+
+
+def test_application_accepts_notes_and_empty_optional_values(client, auth_headers):
+    response = client.post(
+        "/api/applications",
+        headers=auth_headers,
+        json={
+            "company": "Example Inc",
+            "position": "Intern",
+            "location": "",
+            "url": "",
+            "notes": "Follow up next week",
+            "applied_on": None,
+        },
+    )
+    assert response.status_code == 201
+    assert response.get_json()["application"] == {
+        "id": response.get_json()["application"]["id"],
+        "company": "Example Inc",
+        "position": "Intern",
+        "status": "saved",
+        "location": "",
+        "url": "",
+        "notes": "Follow up next week",
+        "applied_on": None,
+    }
+
+
+def test_unauthenticated_requests_cannot_access_application_endpoints(
+    client, auth_headers
+):
+    created = client.post(
+        "/api/applications",
+        headers=auth_headers,
+        json={"company": "Example Inc", "position": "Intern"},
+    )
+    application_id = created.get_json()["application"]["id"]
+    requests = (
+        client.get("/api/applications"),
+        client.post(
+            "/api/applications",
+            json={"company": "Other Inc", "position": "Intern"},
+        ),
+        client.get(f"/api/applications/{application_id}"),
+        client.patch(
+            f"/api/applications/{application_id}", json={"status": "offer"}
+        ),
+        client.delete(f"/api/applications/{application_id}"),
+    )
+    for response in requests:
+        assert response.status_code == 401
+        assert response.is_json
+        assert response.get_json()["error"] == "Unauthorized"
+
+    unchanged = client.get(
+        f"/api/applications/{application_id}", headers=auth_headers
+    )
+    assert unchanged.status_code == 200
+    assert unchanged.get_json()["application"]["status"] == "saved"
+
+
+def test_nonexistent_application_ids_return_json_404(client, auth_headers):
+    missing_id = 987654321
+    requests = (
+        client.get(f"/api/applications/{missing_id}", headers=auth_headers),
+        client.patch(
+            f"/api/applications/{missing_id}",
+            headers=auth_headers,
+            json={"status": "offer"},
+        ),
+        client.delete(
+            f"/api/applications/{missing_id}", headers=auth_headers
+        ),
+    )
+    for response in requests:
+        assert response.status_code == 404
+        assert response.is_json
+        assert response.get_json()["error"] == "Not Found"
+
+    assert client.get("/api/applications", headers=auth_headers).get_json()[
+        "applications"
+    ] == []
 
 
 def test_applications_reject_numeric_only_company_and_position(client, auth_headers):
@@ -161,6 +336,24 @@ def test_application_crud_is_scoped_to_user(client, auth_headers):
     assert updated.status_code == 200
     assert updated.get_json()["application"]["status"] == "applied"
     assert updated.get_json()["application"]["applied_on"] == "2026-11-14"
+    assert (
+        client.get(
+            f"/api/applications/{application_id}", headers=auth_headers
+        ).get_json()["application"]["status"]
+        == "applied"
+    )
+
+    invalid_update = client.patch(
+        f"/api/applications/{application_id}",
+        headers=auth_headers,
+        json={"status": "not-a-status"},
+    )
+    assert invalid_update.status_code == 400
+    unchanged = client.get(
+        f"/api/applications/{application_id}", headers=auth_headers
+    ).get_json()["application"]
+    assert unchanged["status"] == "applied"
+    assert unchanged["applied_on"] == "2026-11-14"
 
     other_user = client.post(
         "/api/auth/register",
@@ -175,6 +368,25 @@ def test_application_crud_is_scoped_to_user(client, auth_headers):
         ).status_code
         == 404
     )
+    assert (
+        client.patch(
+            f"/api/applications/{application_id}",
+            headers=other_headers,
+            json={"status": "withdrawn"},
+        ).status_code
+        == 404
+    )
+    assert (
+        client.delete(
+            f"/api/applications/{application_id}", headers=other_headers
+        ).status_code
+        == 404
+    )
+    unchanged = client.get(
+        f"/api/applications/{application_id}", headers=auth_headers
+    ).get_json()["application"]
+    assert unchanged["status"] == "applied"
+    assert unchanged["applied_on"] == "2026-11-14"
     assert (
         client.delete(f"/api/applications/{application_id}", headers=auth_headers).status_code
         == 204

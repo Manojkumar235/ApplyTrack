@@ -35,9 +35,16 @@ def validate_application_payload(body, partial=False):
         if field in REQUIRED_FIELDS:
             if not isinstance(value, str) or not value.strip():
                 return None, f"{field.capitalize()} must be a non-empty string"
-            if value.strip().isdecimal():
+            cleaned_value = value.strip()
+            if len(cleaned_value) > FIELD_LIMITS[field]:
+                return (
+                    None,
+                    f"{field.capitalize()} must be at most "
+                    f"{FIELD_LIMITS[field]} characters",
+                )
+            if cleaned_value.isdecimal():
                 return None, f"{field.capitalize()} cannot contain only numbers"
-            cleaned[field] = value.strip()
+            cleaned[field] = cleaned_value
         elif field == "status":
             if not isinstance(value, str) or value not in APPLICATION_STATUSES:
                 return None, "Status is not supported"

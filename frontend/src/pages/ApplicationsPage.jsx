@@ -70,9 +70,22 @@ export default function ApplicationsPage() {
           </label>
         </div>
         {isLoading ? (
-          <div className="loading-row">Loading your applications…</div>
+          <div className="loading-row">Loading your applications...</div>
         ) : (
-          <ApplicationTable applications={filteredApplications} />
+          <ApplicationTable
+            applications={filteredApplications}
+            emptyTitle={
+              applications.length
+                ? "No matching applications"
+                : "No applications yet"
+            }
+            emptyDescription={
+              applications.length
+                ? "Try changing your search or status filter."
+                : "Add your first opportunity to start tracking your progress."
+            }
+            showAddAction={!applications.length}
+          />
         )}
       </section>
     </>

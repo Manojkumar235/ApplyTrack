@@ -6,7 +6,13 @@ import {
   formatLocation,
 } from "../utils/applicationFormatting";
 
-export default function ApplicationTable({ applications, compact = false }) {
+export default function ApplicationTable({
+  applications,
+  compact = false,
+  emptyTitle = "No applications yet",
+  emptyDescription = "Add your first opportunity to start tracking your progress.",
+  showAddAction = true,
+}) {
   const navigate = useNavigate();
 
   if (!applications.length) {
@@ -15,12 +21,14 @@ export default function ApplicationTable({ applications, compact = false }) {
         <span className="empty-icon">
           <Icon name="briefcase" size={22} />
         </span>
-        <h3>No applications yet</h3>
-        <p>Add your first opportunity to start tracking your progress.</p>
-        <Link to="/dashboard/applications/new" className="button-primary mt-5">
-          <Icon name="plus" size={17} />
-          Add application
-        </Link>
+        <h3>{emptyTitle}</h3>
+        <p>{emptyDescription}</p>
+        {showAddAction && (
+          <Link to="/dashboard/applications/new" className="button-primary mt-5">
+            <Icon name="plus" size={17} />
+            Add application
+          </Link>
+        )}
       </div>
     );
   }

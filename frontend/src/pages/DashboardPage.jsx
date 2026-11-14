@@ -157,7 +157,7 @@ export default function DashboardPage() {
           </Link>
         </div>
         {isLoading ? (
-          <div className="loading-row">Loading your applications…</div>
+          <div className="loading-row">Loading your applications...</div>
         ) : (
           <ApplicationTable applications={applications} compact />
         )}
